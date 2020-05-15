@@ -67,6 +67,7 @@ usage()
                 Provide the maximum possible upload level in Mbit/s for your connection
 	-v	Output plugin version
 	-V	Output debug info for testing
+	-S	Path to speedtest binary. /usr/bin 
 
 	This script will output the Internet Connection Speed using speedtest-cli to Nagios.
 
@@ -187,7 +188,7 @@ MaxUL=
 debug=
 
 # Retrieve the arguments using getopts
-while getopts "hw:c:W:C:l:s:pm:M:vV" OPTION
+while getopts "hw:c:W:C:l:s:S:pm:M:vV" OPTION
 do
 	case $OPTION in
 	h)
@@ -212,6 +213,9 @@ do
 	s)
 		SEs=$OPTARG
 		;;
+	S)
+		STb=$OPTARG
+                ;;
 	p)
 		PerfData="TRUE"
 		;;
