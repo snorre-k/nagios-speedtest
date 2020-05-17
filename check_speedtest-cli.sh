@@ -1,4 +1,4 @@
-#! /bin/bash
+#! /bin/bash 
 #
 # Script to check Internet connection speed using speedtest-cli
 #
@@ -20,7 +20,7 @@
 ########################################################################################################################################################
 
 plugin_name="Nagios speedtest-cli plugin"
-version="1.2 2017122011:01"
+version="1.4 20200516 18:04 CW"
 
 #####################################################################
 #
@@ -28,7 +28,7 @@ version="1.2 2017122011:01"
 #
 #	Version 1.0 - Initial Release
 #
-#	Version 1.1 - Added requirement to use server id in test and need to define 
+#	Version 1.1 - Added requirement to use server id in test and need to define
 #			full path to speedtest binary - thanks to Sigurdur Bjarnason
 #			for changes and improvements
 #
@@ -38,8 +38,23 @@ version="1.2 2017122011:01"
 #                   - Minor adjustments to help files
 #                   - Change to perf data output - see https://github.com/jonwitts/nagios-speedtest/issues/2
 #
-
+#       Version 1.3 - Stegy: Added option to set path to speedtest binary
+#
+#	Version 1.4 - Christian Wirtz <doc@snowheaven.de> Github: doctore74
+#			- Added options:
+#				- checkmk local check output -T local
+#				- piggyback destination host parameter -O {HOSTNAME}
+#				- return code override for usage with checkmk mk-jobs -R {0,1,2,3}
+#				- checkmk servicename -S {NAME WITHOUT SPACES}
+#			- Usage examples:
+#                         as simple local check
+#                         check_speedtest-cli.sh -p -w 50 -c 28 -W 10 -C 3 -m 100 -M 40 -l e -s 6601 -T local -R 0 -N dsl-speed
+#
+#			  or via crontab and checkmk spool directory with option to show the service in another host "speedport"
+#                         */90 * * * * mk-job dsl-speed /omd/sites/home/local/lib/nagios/plugins/git/nagios-speedtest/check_speedtest-cli.sh -p -w 50 -c 28 -W 10 -C 3 -m 100 -M 40 -l e -s 6601 -O speedport -T local -R 0 -N dsl-speed > /var/lib/check_mk_agent/spool/job_dsl-speed
+#
 #####################################################################
+
 # function to output script usage
 usage()
 {
@@ -57,8 +72,8 @@ usage()
         -l      Location of speedtest server - *Required * - takes either "i" or "e". If you pass "i" for
                 Internal then you will need to pass the URL of the Mini Server to the "s" option. If you pass
                 "e" for External then you must pass the server integer to the "s" option.
-	-s	Server integer or URL for the speedtest server to test against - *Required* - Run 
-		"speedtest --list | less" to find your nearest server and note the number of the server 
+	-s	Server integer or URL for the speedtest server to test against - *Required* - Run
+		"speedtest --list | less" to find your nearest server and note the number of the server
                 or use the URL of an internal Speedtest Mini Server
 	-p	Output Performance Data
         -m      Download Maximum Level - *Required if you request perfdata* - integer or floating point
@@ -67,7 +82,11 @@ usage()
                 Provide the maximum possible upload level in Mbit/s for your connection
 	-v	Output plugin version
 	-V	Output debug info for testing
-	-S	Path to speedtest binary. /usr/bin 
+	-T	Output type {local,nagios} - local = checkmk local check style
+	-O	Piggyback destination host {HOSTNAME} - prints an optional piggyback section
+	-R	Script returncode {0,1,2,3} - override skript returncode (f.e. for checkmk mk-job usage)
+	-N	checkmk service name {without spaces!}
+        -S      Path to speedtest binary. /usr/bin
 
 	This script will output the Internet Connection Speed using speedtest-cli to Nagios.
 
@@ -170,10 +189,10 @@ function float_cond()
 
 # Set up the variable for the location of the speedtest binary.
 # Edit the line below so that the variable is defined as the location
-# to speedtest on your system. On mine it is /usr/local/bin 
+# to speedtest on your system. On mine it is /usr/local/bin
 # Ensure to leave the last slash off!
 # You MUST define this or the script will not run!
-STb=
+STb=/bin
 
 # Set up the variables to take the arguments
 DLw=
@@ -186,9 +205,13 @@ PerfData=
 MaxDL=
 MaxUL=
 debug=
+checktype=
+piggyhost=
+rc=
+servicename=
 
 # Retrieve the arguments using getopts
-while getopts "hw:c:W:C:l:s:S:pm:M:vV" OPTION
+while getopts "hw:c:W:C:l:s:pm:M:vVT:O:R:S:N:" OPTION
 do
 	case $OPTION in
 	h)
@@ -213,9 +236,6 @@ do
 	s)
 		SEs=$OPTARG
 		;;
-	S)
-		STb=$OPTARG
-                ;;
 	p)
 		PerfData="TRUE"
 		;;
@@ -232,6 +252,22 @@ do
 	V)
 		debug="TRUE"
 		;;
+	T)
+		checktype=$OPTARG
+		;;
+	O)
+		piggyhost=$OPTARG
+		;;
+	R)
+		rc=$OPTARG
+		;;
+	N)
+		servicename=$OPTARG
+		;;
+        S)
+                STb=$OPTARG
+                ;;
+
 esac
 done
 
@@ -399,6 +435,9 @@ else
 	nagcode=0
 fi
 
+
+# Example output
+# OK - Ping = 8.841 ms Download = 87.59 Mbit/s Upload = 31.20 Mbit/s|'download'=87.59;80;55;0;105.00 'upload'=31.20;30;20;0;42.00
 nagout="$status - Ping = $ping $pingUOM Download = $download $downloadUOM Upload = $upload $uploadUOM"
 
 # append perfout if argument was passed to script
@@ -406,9 +445,38 @@ if [ "$PerfData" == "TRUE" ]; then
 	if [ "$debug" == "TRUE" ]; then
 		echo "PerfData requested!"
 	fi
+	perfout_nag="|'download'=$download;$DLw;$DLc;0;$(echo $MaxDL*1.05|bc) 'upload'=$upload;$ULw;$ULc;0;$(echo $MaxUL*1.05|bc)"
 	perfout="|'download'=$download;$DLw;$DLc;0;$(echo $MaxDL*1.05|bc) 'upload'=$upload;$ULw;$ULc;0;$(echo $MaxUL*1.05|bc)"
-	nagout=$nagout$perfout
+
+	nagout=$nagout$perfout_nag
+
+        NOW=`date`
+
+        # checkmk localcheck output
+        cmkout="$nagcode $servicename 'download'=$download;$DLw;$DLc;0;$(echo $MaxDL*1.05|bc)|'upload'=$upload;$ULw;$ULc;0;$(echo $MaxUL*1.05|bc) Ping = $ping $pingUOM Download = $download $downloadUOM Upload = $upload $uploadUOM $status (last run: $NOW)"
+
 fi
 
-echo $nagout
-exit $nagcode
+# Determine if checktype is nagios or local (checkmk)
+if [[ "$checktype" == "nagios" ]]; then
+	echo $nagout
+	exit $nagcode
+else
+	if [[ "$piggyhost" != "" ]]; then
+		echo -e "<<<<$piggyhost>>>>"
+		echo -e "<<<local>>>"
+	fi
+
+	echo $cmkout
+
+	if [[ "$piggyhost" != "" ]]; then
+		echo -e "<<<>>>"
+		echo -e "<<<<>>>>"
+	fi
+
+	if [[ "$rc" != "" ]]; then
+		exit $rc
+	else
+		exit 0
+	fi
+fi
