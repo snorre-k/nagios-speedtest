@@ -34,6 +34,7 @@ version="1.0 20201017"
 #                   sudo apt-get update
 #                   sudo apt-get remove speedtest-cli   # if speedtest-cli is installed
 #                   sudo apt-get install speedtest
+#                - WARNING License: run "speedtest" as monitoring user once to accept license!
 #
 ########################################################################################################################################################
 

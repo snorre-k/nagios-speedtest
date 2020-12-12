@@ -16,6 +16,7 @@ Full details here: http://www.jonwitts.co.uk/archives/315
   - ```speedtest.py``` for Check MK graping
 - 2020-12-12 Snorre:
   - new script: check_speedtest.sh - uses official Ookla speedtest
+  - WARNING: run speedtest as monitoring user once to accept license!
   
 ## Usage with Check MK
 You can deploy the Plugin and the graphing template with
