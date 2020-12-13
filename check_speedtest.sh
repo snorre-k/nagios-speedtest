@@ -220,7 +220,7 @@ fi
 
 ##Set command up depending upon internal or external
 # External
-if [ "$Ses" ]; then
+if [ "$SEs" ]; then
   command="$STb/speedtest --server-id=$SEs"
   if [ "$debug" == "TRUE" ]; then
     echo "External Server defined: $SEs"
