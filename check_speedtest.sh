@@ -244,6 +244,11 @@ fi
 # Get the output of the speedtest into a variable
 # so we can begin to process it
 out=$($command)
+# on Error
+if [ $? -ne 0 ]; then
+  echo "Error on running speedtest command" >&2
+  exit 3
+fi
 # remove CR ("\r", 0x0d)
 out=$(echo "$out" | sed 's/\r//')
 
