@@ -232,7 +232,8 @@ else
     echo "Automatic Server defined!"
   fi
 fi
-command="$command --progress=no"
+# Additional parameters - progress - licenses
+command="$command --progress=no --accept-license --accept-gdpr"
 # Debug: Output Command
 if [ "$debug" == "TRUE" ]; then
   echo "Speedtest: $command"
